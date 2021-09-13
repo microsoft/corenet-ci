@@ -120,11 +120,11 @@ function ConfigureVM($VmName, $VmNumber)
         bcdedit.exe /set testsigning on
         bcdedit.exe /dbgsettings NET HOSTIPV6:$HostIP PORT:$Port KEY:$DebugKey /noumex
         # bcdedit.exe /debug on
-		# Configure dump file collection.
-		reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v DumpFile /t REG_EXPAND_SZ /d C:\memory.dmp /f
-		reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v CrashDumpEnabled /t REG_DWORD /d 1 /f
-		reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v Overwrite /t REG_DWORD /d 1 /f
-		reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v AlwaysKeepMemoryDump /t REG_DWORD /d 1 /f
+        # Configure dump file collection.
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v DumpFile /t REG_EXPAND_SZ /d C:\memory.dmp /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v CrashDumpEnabled /t REG_DWORD /d 1 /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v Overwrite /t REG_DWORD /d 1 /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v AlwaysKeepMemoryDump /t REG_DWORD /d 1 /f
         # Install DuoNic
         pushd c:\duonic
         & C:\duonic\duonic.ps1 -Install
@@ -151,10 +151,10 @@ function ConfigureVM($VmName, $VmNumber)
         If ($ChangeStatus.ReturnValue -eq "0") {
             Write-host "Set User Name sucessfully for the service '$ServiceName'"
         }
-		# Create start up job to copy dump files and start Azure Pipeline agent service.
-		$Trigger = New-JobTrigger -AtStartup
-		Register-ScheduledJob -Trigger $Trigger -FilePath C:\CoreNet-CI-Startup.ps1 -Name CoreNet-CI-Startup
-		# Start the service back up.
+        # Create start up job to copy dump files and start Azure Pipeline agent service.
+        $Trigger = New-JobTrigger -AtStartup
+        Register-ScheduledJob -Trigger $Trigger -FilePath C:\CoreNet-CI-Startup.ps1 -Name CoreNet-CI-Startup
+        # Start the service back up.
         Start-Sleep 5
         $StartStatus = $WmiObject.StartService()
         If ($StartStatus.ReturnValue -eq "0") {
