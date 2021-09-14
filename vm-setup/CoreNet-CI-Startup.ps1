@@ -17,34 +17,48 @@ $RemoteSharePassword = "VM-Test-Execution"
 try {
     # Copy out any dump file.
     if (Test-Path $LocalDumpPath) {
-        $RemoteDumpPath = ""
+        
+        # Make sure the share is available.
+		Write-Host "net use $RemoteDumpDir $RemoteSharePassword /USER:VM"
+        net use $RemoteDumpDir $RemoteSharePassword /USER:VM
+
+        $RemoteDumpPath = Join-Path $RemoteDumpDir $env:computername
+
+		# Create the folder if necessary.
+		if (!(Test-Path $RemoteDumpPath)) {
+			Write-Host "New-Item $RemoteDumpPath -Force"
+			New-Item $RemoteDumpPath -ItemType directory -Force
+		}
+		
         if (Test-Path $LocalDumpCfgPath) {
             # Use the dump config to copy the dump out.
             $Description = Get-Content $LocalDumpCfgPath
-            $RemoteDumpPath = Join-Path $RemoteDumpDir $env:computername ($Description + ".dmp")
+            $RemoteDumpPath = Join-Path $RemoteDumpPath ($Description + ".dmp")
             
         } else {
             # No explicit dump configuration. Generate a generic one.
             $DateTime = Get-Date -Format "yyyy.dd.MM.HH.mm.ss"
-            $RemoteDumpPath = Join-Path $RemoteDumpDir $env:computername ("memory" + $DateTime + ".dmp")
+            $RemoteDumpPath = Join-Path $RemoteDumpPath ("memory." + $DateTime + ".dmp")
         }
         
-        Write-Debug "Copying $LocalDumpPath to $RemoteDumpPath"
-        
-        # Make sure the share is available.
-        net use $RemoteDumpDir $RemoteSharePassword /USER:VM
-        
         # Copy the file out.
-        Copy-Item $LocalDumpPath $RemoteDumpPath -Recurse -Force
+		Write-Host "Copy-Item $LocalDumpPath $RemoteDumpPath -Recurse -Force"
+        Copy-Item $LocalDumpPath $RemoteDumpPath -Force
         
         # Delete the local file.
+		Write-Host "Remove-Item $LocalDumpPath -Force"
         Remove-Item $LocalDumpPath -Force
-    }
+
+    } else {
+		Write-Host "$LocalDumpPath not found. Skipping."
+	}
 
 } catch {
-    Write-Debug "Encountered exception!"
+    Write-Host "Encountered exception!"
+	Write-Host $_
 
 } finally {
     # Start AZP agent service
+    Write-Host "Starting VSTS Agent Service"
     Start-Service (Get-Service vstsagent*)
 }
