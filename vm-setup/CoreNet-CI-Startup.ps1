@@ -19,17 +19,17 @@ try {
     if (Test-Path $LocalDumpPath) {
         
         # Make sure the share is available.
-		Write-Host "net use $RemoteDumpDir $RemoteSharePassword /USER:VM"
+        Write-Host "net use $RemoteDumpDir $RemoteSharePassword /USER:VM"
         net use $RemoteDumpDir $RemoteSharePassword /USER:VM
 
         $RemoteDumpPath = Join-Path $RemoteDumpDir $env:computername
 
-		# Create the folder if necessary.
-		if (!(Test-Path $RemoteDumpPath)) {
-			Write-Host "New-Item $RemoteDumpPath -Force"
-			New-Item $RemoteDumpPath -ItemType directory -Force
-		}
-		
+        # Create the folder if necessary.
+        if (!(Test-Path $RemoteDumpPath)) {
+            Write-Host "New-Item $RemoteDumpPath -Force"
+            New-Item $RemoteDumpPath -ItemType directory -Force
+        }
+        
         if (Test-Path $LocalDumpCfgPath) {
             # Use the dump config to copy the dump out.
             $Description = Get-Content $LocalDumpCfgPath
@@ -42,20 +42,20 @@ try {
         }
         
         # Copy the file out.
-		Write-Host "Copy-Item $LocalDumpPath $RemoteDumpPath -Recurse -Force"
+        Write-Host "Copy-Item $LocalDumpPath $RemoteDumpPath -Recurse -Force"
         Copy-Item $LocalDumpPath $RemoteDumpPath -Force
         
         # Delete the local file.
-		Write-Host "Remove-Item $LocalDumpPath -Force"
+        Write-Host "Remove-Item $LocalDumpPath -Force"
         Remove-Item $LocalDumpPath -Force
 
     } else {
-		Write-Host "$LocalDumpPath not found. Skipping."
-	}
+        Write-Host "$LocalDumpPath not found. Skipping."
+    }
 
 } catch {
     Write-Host "Encountered exception!"
-	Write-Host $_
+    Write-Host $_
 
 } finally {
     # Start AZP agent service

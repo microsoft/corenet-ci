@@ -154,7 +154,7 @@ function ConfigureVM($VmName, $VmNumber)
         # Create start up job to copy dump files and start Azure Pipeline agent service.
         $Trigger = New-JobTrigger -AtStartup
         Register-ScheduledJob -Trigger $Trigger -FilePath C:\CoreNet-CI-Startup.ps1 -Name CoreNet-CI-Startup
-		Set-Service $ServiceName -StartupType Manual
+        Set-Service $ServiceName -StartupType Manual
         # Start the service back up.
         Start-Sleep 5
         $StartStatus = $WmiObject.StartService()
