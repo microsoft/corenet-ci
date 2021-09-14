@@ -120,6 +120,11 @@ function ConfigureVM($VmName, $VmNumber)
         bcdedit.exe /set testsigning on
         bcdedit.exe /dbgsettings NET HOSTIPV6:$HostIP PORT:$Port KEY:$DebugKey /noumex
         # bcdedit.exe /debug on
+        # Configure dump file collection.
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v DumpFile /t REG_EXPAND_SZ /d C:\memory.dmp /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v CrashDumpEnabled /t REG_DWORD /d 1 /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v Overwrite /t REG_DWORD /d 1 /f
+        reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v AlwaysKeepMemoryDump /t REG_DWORD /d 1 /f
         # Install DuoNic
         pushd c:\duonic
         & C:\duonic\duonic.ps1 -Install
@@ -146,6 +151,11 @@ function ConfigureVM($VmName, $VmNumber)
         If ($ChangeStatus.ReturnValue -eq "0") {
             Write-host "Set User Name sucessfully for the service '$ServiceName'"
         }
+        # Create start up job to copy dump files and start Azure Pipeline agent service.
+        $Trigger = New-JobTrigger -AtStartup
+        Register-ScheduledJob -Trigger $Trigger -FilePath C:\CoreNet-CI-Startup.ps1 -Name CoreNet-CI-Startup
+        Set-Service $ServiceName -StartupType Manual
+        # Start the service back up.
         Start-Sleep 5
         $StartStatus = $WmiObject.StartService()
         If ($StartStatus.ReturnValue -eq "0") {
@@ -204,14 +214,16 @@ if ($Mode -eq "prepareseed") {
     }
     AddUnattendFile $Vhd "$($UnattendLocation)\unattend.xml"
     ExecuteScriptWithMountedVhd $Vhd {
-        Invoke-WebRequest -Uri "https://vstsagentpackage.azureedge.net/agent/2.172.2/vsts-agent-win-x64-2.172.2.zip" -OutFile "$($vhdmountdir)\vsts-agent-win-x64-2.172.2.zip"
+        Invoke-WebRequest -Uri "https://vstsagentpackage.azureedge.net/agent/2.192.0/vsts-agent-win-x64-2.192.0.zip" -OutFile "$($vhdmountdir)\vsts-agent-win-x64-2.192.0.zip"
         Invoke-WebRequest -Uri "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-0.9.9.0/OpenCppCoverageSetup-x64-0.9.9.0.exe" -OutFile "$($vhdmountdir)\OpenCppCoverageSetup-x64-0.9.9.0.exe"
         Expand-Archive -Path "$($vhdmountdir)\vsts-agent-win-x64-2.172.2.zip" -DestinationPath "$($vhdmountdir)\a" -Force
         Copy-Item "vs_buildtools.exe" "$($vhdmountdir)\vs_buildtools.exe"
         Copy-Item "sfpcopy.exe" "$($vhdmountdir)\Windows\System32\sfpcopy.exe"
         Copy-Item "testroot-sha2.cer" "$($vhdmountdir)"
+        Copy-Item "dswdevice.exe" "$($vhdmountdir)"
+        Copy-Item "notmyfault64.exe" "$($vhdmountdir)"
+        Copy-Item "CoreNet-CI-Startup.ps1" "$($vhdmountdir)"
         Copy-Item -Recurse "duonic" "$($vhdmountdir)"
-        Copy-Item "netput.exe" "$($vhdmountdir)\Windows\System32\netput.exe"
         Copy-Item -Recurse "sdk" "$($vhdmountdir)"
     }
 } else {
