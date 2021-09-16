@@ -153,7 +153,8 @@ function ConfigureVM($VmName, $VmNumber)
         }
         # Create start up job to copy dump files and start Azure Pipeline agent service.
         $Trigger = New-ScheduledTaskTrigger -AtStartup
-        Register-ScheduledJob -Trigger $Trigger -FilePath C:\CoreNet-CI-Startup.ps1 -Name CoreNet-CI-Startup
+        $Action = New-ScheduledTaskAction -Execute 'pwsh' -Argument C:\CoreNet-CI-Startup.ps1 
+        Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName CoreNet-CI-Startup -Description "Copy Dumps and Start VSTS Service" -User Administrator -Password Test-Execution
         Set-Service $ServiceName -StartupType Manual
         # Start the service back up.
         Start-Sleep 5
