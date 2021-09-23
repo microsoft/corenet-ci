@@ -126,7 +126,7 @@ function ConfigureVM($VmName, $VmNumber)
         reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v Overwrite /t REG_DWORD /d 1 /f
         reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v AlwaysKeepMemoryDump /t REG_DWORD /d 1 /f
         # Enable driver verifier.
-        verifier.exe /standard /driver msquicpriv.sys msquictestpriv.sys xdp.sys xdpfnmp.sys xdpmp.sys
+        verifier.exe /standard /driver fndis.sys msquicpriv.sys msquictestpriv.sys xdp.sys xdpfnmp.sys xdpmp.sys
         # Install DuoNic
         pushd c:\duonic
         & C:\duonic\duonic.ps1 -Install
