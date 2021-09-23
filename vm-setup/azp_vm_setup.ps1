@@ -125,6 +125,8 @@ function ConfigureVM($VmName, $VmNumber)
         reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v CrashDumpEnabled /t REG_DWORD /d 1 /f
         reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v Overwrite /t REG_DWORD /d 1 /f
         reg add HKLM\SYSTEM\CurrentControlSet\Control\CrashControl /v AlwaysKeepMemoryDump /t REG_DWORD /d 1 /f
+        # Enable driver verifier.
+        verifier.exe /standard /driver msquicpriv.sys msquictestpriv.sys xdp.sys xdpfnmp.sys xdpmp.sys
         # Install DuoNic
         pushd c:\duonic
         & C:\duonic\duonic.ps1 -Install
@@ -143,7 +145,7 @@ function ConfigureVM($VmName, $VmNumber)
         #Get-Service vsts* | Restart-Service
         $ServiceName = (get-service vsts*).name
         $WmiObject = Get-WMIObject Win32_Service -filter "name='$ServiceName'"
-        $StopStatus = $WmiObject.StopService() 
+        $StopStatus = $WmiObject.StopService()
         If ($StopStatus.ReturnValue -eq "0") {
             Write-host "The service '$ServiceName' Stopped successfully"
         }
@@ -153,7 +155,7 @@ function ConfigureVM($VmName, $VmNumber)
         }
         # Create start up job to copy dump files and start Azure Pipeline agent service.
         $Trigger = New-ScheduledTaskTrigger -AtStartup
-        $Action = New-ScheduledTaskAction -Execute 'pwsh' -Argument C:\CoreNet-CI-Startup.ps1 
+        $Action = New-ScheduledTaskAction -Execute 'pwsh' -Argument C:\CoreNet-CI-Startup.ps1
         Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName CoreNet-CI-Startup -Description "Copy Dumps and Start VSTS Service" -User Administrator -Password Test-Execution
         Set-Service $ServiceName -StartupType Manual
         # Start the service back up.
