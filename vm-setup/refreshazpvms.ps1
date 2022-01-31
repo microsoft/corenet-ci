@@ -22,17 +22,17 @@ if (!$SkipSeedPrep) {
 
 if (!$SkipDeleteCreate) {
 	.\azp_vm_setup.ps1 -Mode delete -PAT "$($ExternalPAT)"
-	.\azp_vm_setup.ps1 -Mode delete -PAT "$($InternalPAT)" -AgentUrl "https://dev.azure.com/mscodehub" -VmsToProcess 2 -VmNamePrefix INT -AgentPool MsQuic
+	.\azp_vm_setup.ps1 -Mode delete -PAT "$($InternalPAT)" -AgentUrl "https://dev.azure.com/mscodehub" -VmsToProcess 4 -VmNamePrefix INT -AgentPool MsQuic
 
 	.\azp_vm_setup.ps1 -Mode create -SeedVhd $SeedVhd -VmsToProcess 8
-	.\azp_vm_setup.ps1 -Mode create -SeedVhd $SeedVhd -VmsToProcess 2 -VmNamePrefix INT -DebugPortBase 50020
+	.\azp_vm_setup.ps1 -Mode create -SeedVhd $SeedVhd -VmsToProcess 4 -VmNamePrefix INT -DebugPortBase 50020
 
 	Write-Host "Wait for the machines to complete OOBE before continuing"
 	pause
 }
 
 .\azp_vm_setup.ps1 -Mode config -PAT "$($ExternalPAT)" -VmPassword "$($AdminPassword)"
-.\azp_vm_setup.ps1 -Mode config -VmsToProcess 2 -VmNamePrefix INT -DebugPortBase 50020 -VmPassword "$($AdminPassword)" -PAT "$($InternalPAT)" -AgentUrl "https://dev.azure.com/mscodehub"  -AgentPool MsQuic
+.\azp_vm_setup.ps1 -Mode config -VmsToProcess 4 -VmNamePrefix INT -DebugPortBase 50020 -VmPassword "$($AdminPassword)" -PAT "$($InternalPAT)" -AgentUrl "https://dev.azure.com/mscodehub"  -AgentPool MsQuic
 
 Write-Host "Ensure WinSDK has finished installing on all VMs before proceeding."
 pause
