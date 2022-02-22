@@ -53,3 +53,9 @@ $Credential = New-Object System.Management.Automation.PSCredential ('Administrat
 
 get-VM | foreach{ Invoke-Command -VMName $_.Name -Credential $Credential -ScriptBlock $Block -AsJob }
 
+get-VM | stop-VM
+
+get-VM | checkpoint-VM -SnapshotName "Setup Complete"
+
+get-VM | start-VM
+
