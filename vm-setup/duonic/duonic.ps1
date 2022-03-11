@@ -28,6 +28,12 @@ param (
     [ValidateRange(1, 4)]
     [Int32]$NumNicPairs = 1,
 
+    [Parameter(Mandatory = $false, ParameterSetName='RdqShowConfig')]
+    [switch]$RdqShowConfig = $false,
+
+    [Parameter(Mandatory = $false, ParameterSetName='RdqDisable')]
+    [switch]$RdqDisable = $false,
+
     [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
     [switch]$Rdq = $false,
 
@@ -137,6 +143,26 @@ if ($Install) {
     }
 }
 
+if ($RdqShowConfig) {
+    # query duo1 and assume duo2 is identical, which will be the case if this script was used to configure duonic.
+
+    if ((Get-NetAdapterAdvancedProperty duo1 -DisplayName RdqEnabled).RegistryValue -eq 1) {
+        echo (`
+            "Current net emulation: RTT=" + `
+                ([Convert]::ToInt32((Get-NetAdapterAdvancedProperty duo1 -DisplayName DelayMs).DisplayValue)*2) + `
+            "ms, Rate=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RateLimitMbps).DisplayValue + `
+            "Mbps, Buffer=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName QueueLimitPackets).DisplayValue + `
+            "packets, RandomLossDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomLossDenominator).DisplayValue + `
+            ", ReorderDelayDelta=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName ReorderDelayDeltaMs).DisplayValue + `
+            "ms, RandomReorderDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomReorderDenominator).DisplayValue + `
+            ", MaxDelayJitterMs=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName MaxDelayJitterMs).DisplayValue + `
+            "ms, RandomDelayJitterDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomDelayJitterDenominator).DisplayValue + `
+            ", RandomSeed=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomSeed).DisplayValue)
+    } else {
+        echo "RDQ is not currently enabled."
+    }
+}
+
 if ($Rdq) {
     echo (`
         "Configuring net emulation: RTT=" + [Convert]::ToString($RttMs) + `
@@ -176,6 +202,14 @@ if ($Rdq) {
     echo "Done."
 }
 
+if ($RdqDisable) {
+    Set-NetAdapterAdvancedProperty duo? -DisplayName RdqEnabled -RegistryValue 0 -NoRestart
+    Set-NetAdapterLso duo? -IPv4Enabled $true -IPv6Enabled $true -NoRestart
+    Restart-NetAdapter duo?
+    Start-Sleep 10 # (wait for duonic to restart)
+    echo "Done."
+}
+
 if ($Uninstall) {
     # Uninstall all possible duonic pairs.
     for ($i = 1; $i -le 4; $i++) {
@@ -193,10 +227,7 @@ if ($Uninstall) {
     # have been done if pnputil or Get-WindowsDriver is not available on the machine, which is
     # the case for OneCore-based images.
     if (-not $DriverPreinstalled) {
-        for ($i = 1; $i -le $NumNicPairs * 2; $i++) {
-            sc.exe delete duonic_svc$i
-        }
-
+        sc.exe delete duonic
         # There are some cases where pnputil is used to install the driver, but
         # Get-WindowsDriver is not available, eg RS 1.8x. In that case, fall back to parsing pnputil
         # enum output.
