@@ -167,6 +167,7 @@ function ConfigureVM($VmName, $VmNumber)
         # Wait for Visual Studio to finish installing to copy this
         Start-Sleep 300
         Copy-Item "c:\sdk\*" "C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x86\"
+        start-process wmic.exe -argumentlist $('computersystem where caption="{0}" rename "{1}"' -f "$env:COMPUTERNAME","$VmName") -NoNewWindow -wait
     }
 
     $DebugPort = $DebugPortBase + $VmNumber
