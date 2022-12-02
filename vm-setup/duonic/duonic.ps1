@@ -28,9 +28,6 @@ param (
     [ValidateRange(1, 4)]
     [Int32]$NumNicPairs = 1,
 
-    [Parameter(Mandatory = $false, ParameterSetName='RdqShowConfig')]
-    [switch]$RdqShowConfig = $false,
-
     [Parameter(Mandatory = $false, ParameterSetName='RdqDisable')]
     [switch]$RdqDisable = $false,
 
@@ -63,8 +60,25 @@ param (
                                               # N==0: no delay jitter.
 
     [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
-    [string]$RandomSeed = ""    # Empty string, use system RNG for seed.
+    [string]$RandomSeed = "",   # Empty string, use system RNG for seed.
                                 # Non-empty string, hex values seed for random loss/reorder/jitter RNG.
+
+    [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
+    [Int32]$REDUpper = 0,      # N>0: at this average queue size, the marking probability is maximal.
+                               # N==0: ignore packets for RED.
+    [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
+    [Int32]$REDLower = 0,      # N>0: average queue size at which marking becomes a possibility.
+                               # N==0: ignore packets for RED.
+    [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
+    [Int32]$REDMaxProb = 0,    # N>0: maximum probability for marking in percentage.
+                               # N==0: ignore packets for RED.
+    [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
+    [Int32]$REDQWeightPercent = 0,  # N>0: RED uses exponential weighted moving average (EWMA) queue length, AvgQ.
+                                    # AvgQ = (100% - REDQWeightPercent) * Q + REDQWeightPercent * AvgQ where Q is
+                                    # the instaneuous queue length.
+                                    # N==0: always use instantaneous queue length for RED.
+    [Parameter(Mandatory = $false, ParameterSetName='Rdq')]
+    [switch]$REDDrop                # If set, drop packets rather than mark them for RED.
 )
 
 if ($GatherDeps) {
@@ -143,38 +157,7 @@ if ($Install) {
     }
 }
 
-if ($RdqShowConfig) {
-    # query duo1 and assume duo2 is identical, which will be the case if this script was used to configure duonic.
-
-    if ((Get-NetAdapterAdvancedProperty duo1 -DisplayName RdqEnabled).RegistryValue -eq 1) {
-        echo (`
-            "Current net emulation: RTT=" + `
-                ([Convert]::ToInt32((Get-NetAdapterAdvancedProperty duo1 -DisplayName DelayMs).DisplayValue)*2) + `
-            "ms, Rate=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RateLimitMbps).DisplayValue + `
-            "Mbps, Buffer=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName QueueLimitPackets).DisplayValue + `
-            "packets, RandomLossDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomLossDenominator).DisplayValue + `
-            ", ReorderDelayDelta=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName ReorderDelayDeltaMs).DisplayValue + `
-            "ms, RandomReorderDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomReorderDenominator).DisplayValue + `
-            ", MaxDelayJitterMs=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName MaxDelayJitterMs).DisplayValue + `
-            "ms, RandomDelayJitterDenominator=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomDelayJitterDenominator).DisplayValue + `
-            ", RandomSeed=" + (Get-NetAdapterAdvancedProperty duo1 -DisplayName RandomSeed).DisplayValue)
-    } else {
-        echo "RDQ is not currently enabled."
-    }
-}
-
 if ($Rdq) {
-    echo (`
-        "Configuring net emulation: RTT=" + [Convert]::ToString($RttMs) + `
-        "ms, Rate=" + [Convert]::ToString($BottleneckMbps) + `
-        "Mbps, Buffer=" + [Convert]::ToString($BottleneckBufferPackets) + `
-        "packets, RandomLossDenominator=" + [Convert]::ToString($RandomLossDenominator) + `
-        ", ReorderDelayDelta=" + [Convert]::ToString($ReorderDelayDeltaMs) + `
-        "ms, RandomReorderDenominator=" + [Convert]::ToString($RandomReorderDenominator) + `
-        ", MaxDelayJitterMs=" + [Convert]::ToString($MaxDelayJitterMs) + `
-        "ms, RandomDelayJitterDenominator=" + [Convert]::ToString($RandomDelayJitterDenominator) + `
-        ", RandomSeed=$($RandomSeed)")
-
     Set-NetAdapterAdvancedProperty duo? -DisplayName RdqEnabled -RegistryValue 1 -NoRestart
 
     # The RDQ buffer limit is by packets and not bytes, so turn off LSO to
@@ -191,6 +174,15 @@ if ($Rdq) {
     Set-NetAdapterAdvancedProperty duo? -DisplayName RandomReorderDenominator -RegistryValue $RandomReorderDenominator -NoRestart
     Set-NetAdapterAdvancedProperty duo? -DisplayName MaxDelayJitterMs -RegistryValue $MaxDelayJitterMs -NoRestart
     Set-NetAdapterAdvancedProperty duo? -DisplayName RandomDelayJitterDenominator -RegistryValue $RandomDelayJitterDenominator -NoRestart
+    Set-NetAdapterAdvancedProperty duo? -DisplayName REDUpper -RegistryValue $REDUpper -NoRestart
+    Set-NetAdapterAdvancedProperty duo? -DisplayName REDLower -RegistryValue $REDLower -NoRestart
+    Set-NetAdapterAdvancedProperty duo? -DisplayName REDMaxProb -RegistryValue $REDMaxProb -NoRestart
+    Set-NetAdapterAdvancedProperty duo? -DisplayName REDQWeightPercent -RegistryValue $REDQWeightPercent -NoRestart
+    if ($REDDrop) {
+        Set-NetAdapterAdvancedProperty duo? -DisplayName REDDrop -RegistryValue 1 -NoRestart
+    } else {
+        Set-NetAdapterAdvancedProperty duo? -DisplayName REDDrop -RegistryValue 0 -NoRestart
+    }
     if ($RandomSeed -ne "") {
         Set-NetAdapterAdvancedProperty duo? -DisplayName RandomSeed -RegistryValue $RandomSeed -NoRestart
     } else {
@@ -199,6 +191,7 @@ if ($Rdq) {
 
     Restart-NetAdapter duo?
     Start-Sleep 10 # (wait for duonic to restart)
+    Get-NetAdapterAdvancedProperty duo? | Select-Object Name,DisplayName,DisplayValue
     echo "Done."
 }
 
