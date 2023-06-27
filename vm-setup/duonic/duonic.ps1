@@ -28,6 +28,10 @@ param (
     [ValidateRange(1, 4)]
     [Int32]$NumNicPairs = 1,
 
+    [Parameter(Mandatory = $false, ParameterSetName='Install')]
+    [Parameter(ParameterSetName='Uninstall')]
+    [switch]$NoFirewallRules = $false,
+
     [Parameter(Mandatory = $false, ParameterSetName='RdqDisable')]
     [switch]$RdqDisable = $false,
 
@@ -152,9 +156,13 @@ if ($Install) {
         netsh int ipv6 add route prefix=fc00::$i`:12/128 interface=duo$nic1 nexthop=:: metric=0
         netsh int ipv6 add route prefix=fc00::$i`:11/128 interface=duo$nic2 nexthop=:: metric=0
 
-        netsh advfirewall firewall add rule name=AllowDuonic$i dir=in action=allow protocol=any remoteip=192.168.$i.0/24
-        netsh advfirewall firewall add rule name=AllowDuonic$i`v6 dir=in action=allow protocol=any remoteip=fc00::$i`:0/112
+        if (-not $NoFirewallRules) {
+            netsh advfirewall firewall add rule name=AllowDuonic$i dir=in action=allow protocol=any remoteip=192.168.$i.0/24
+            netsh advfirewall firewall add rule name=AllowDuonic$i`v6 dir=in action=allow protocol=any remoteip=fc00::$i`:0/112
+        }
     }
+
+    Start-Sleep 5 # give some time for IP addresses to be ready
 }
 
 if ($Rdq) {
@@ -165,6 +173,7 @@ if ($Rdq) {
     # on the network (such a middlebox would only see packets after LSO sends
     # are split into MTU-sized packets).
     Set-NetAdapterLso duo? -IPv4Enabled $false -IPv6Enabled $false -NoRestart
+    Set-NetAdapterUso duo? -IPv4Enabled $false -IPv6Enabled $false -NoRestart
 
     Set-NetAdapterAdvancedProperty duo? -DisplayName DelayMs -RegistryValue ([convert]::ToInt32($RttMs/2)) -NoRestart
     Set-NetAdapterAdvancedProperty duo? -DisplayName RateLimitMbps -RegistryValue $BottleneckMbps -NoRestart
@@ -212,8 +221,10 @@ if ($Uninstall) {
         .\dswdevice.exe -u duonic_svc$nic1 > $null
         .\dswdevice.exe -u duonic_svc$nic2 > $null
 
-        netsh advfirewall firewall del rule name=AllowDuonic$i
-        netsh advfirewall firewall del rule name=AllowDuonic$i`v6
+        if (-not $NoFirewallRules) {
+            netsh advfirewall firewall del rule name=AllowDuonic$i
+            netsh advfirewall firewall del rule name=AllowDuonic$i`v6
+        }
     }
 
     # The driver might have already been previously installed via another method. This might
