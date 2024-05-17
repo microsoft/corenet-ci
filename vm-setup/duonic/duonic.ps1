@@ -85,6 +85,46 @@ param (
     [switch]$REDDrop                # If set, drop packets rather than mark them for RED.
 )
 
+# Helper to wait for a service to be deleted. Callers are responsible
+# for initiating deletion.
+function Wait-For-Service-Deletion($Name) {
+    echo "Waiting for $Name service to be deleted..."
+    $DeleteSuccess = $false
+    for ($i = 0; $i -lt 600; $i++) {
+        if (-not (Get-Service $Name -ErrorAction Ignore)) {
+            $DeleteSuccess = $true
+            break;
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    if (!$DeleteSuccess) {
+        echo "Failed to clean up $Name!"
+    }
+}
+
+# Helper to wait for an adapter to start.
+function Wait-For-Adapters($IfDesc, $Count=1, $WaitForUp=$true) {
+    echo "Waiting for $Count `"$IfDesc`" adapter(s) to start"
+    $StartSuccess = $false
+    for ($i = 0; $i -lt 600; $i++) {
+        $Result = 0
+        $Filter = { $_.InterfaceDescription -like "$IfDesc*" -and (!$WaitForUp -or $_.Status -eq "Up") }
+        try { $Result = ((Get-NetAdapter | where $Filter) | Measure-Object).Count } catch {}
+        if ($Result -eq $Count) {
+            $StartSuccess = $true
+            break;
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    if ($StartSuccess -eq $false) {
+        echo "$(Get-NetAdapter | Format-Table | Out-String)"
+        echo "Failed to start $Count `"$IfDesc`" adapter(s) [$Result/$Count]"
+        exit 1
+    } else {
+        echo "Started $Count `"$IfDesc`" adapter(s)"
+    }
+}
+
 if ($GatherDeps) {
     if ($BuildPath -eq "") {
         $Build = ((gci "hklm:\software\microsoft\windows NT" | gp).BuildLabEx).Split(".")
@@ -92,8 +132,8 @@ if ($GatherDeps) {
     }
     net use $BuildPath
     if (!(Test-Path $BuildPath)) {
-        echo ("Path for this build doesn't exist: " + $BuildPath)
-        exit
+        echo "Path for this build doesn't exist: $BuildPath"
+        exit 1
     }
     cp ($BuildPath + "\bin\idw\dswdevice.exe")
     cp ($BuildPath + "\bin\idw\devcon.exe")
@@ -125,7 +165,7 @@ if ($Install) {
 
     echo "Restarting NICs"
     Restart-NetAdapter duo?
-    Start-Sleep 10 # wait for duonic(s) to restart
+    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
 
     # Configure each pair separately with its own hard-coded subnet, ie 192.168.x.0/24.
     for ($i = 1; $i -le $NumNicPairs; $i++) {
@@ -199,7 +239,8 @@ if ($Rdq) {
     }
 
     Restart-NetAdapter duo?
-    Start-Sleep 10 # (wait for duonic to restart)
+    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
+    Start-Sleep 5 # give some time for IP addresses to be ready
     Get-NetAdapterAdvancedProperty duo? | Select-Object Name,DisplayName,DisplayValue
     echo "Done."
 }
@@ -208,7 +249,8 @@ if ($RdqDisable) {
     Set-NetAdapterAdvancedProperty duo? -DisplayName RdqEnabled -RegistryValue 0 -NoRestart
     Set-NetAdapterLso duo? -IPv4Enabled $true -IPv6Enabled $true -NoRestart
     Restart-NetAdapter duo?
-    Start-Sleep 10 # (wait for duonic to restart)
+    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
+    Start-Sleep 5 # give some time for IP addresses to be ready
     echo "Done."
 }
 
@@ -232,6 +274,7 @@ if ($Uninstall) {
     # the case for OneCore-based images.
     if (-not $DriverPreinstalled) {
         sc.exe delete duonic
+        Wait-For-Service-Deletion -Name duonic
         # There are some cases where pnputil is used to install the driver, but
         # Get-WindowsDriver is not available, eg RS 1.8x. In that case, fall back to parsing pnputil
         # enum output.
@@ -270,6 +313,14 @@ if ($Uninstall) {
         if ($LASTEXITCODE -ne 0) {
             .\devcon.exe remove duonic.inf ms_duonic 2> $null
             pnputil /delete-driver $duonicDriverFile /force 2> $null
+        }
+
+        $devicesInstalled = pnputil /enum-devices
+        foreach ($line in $devicesInstalled) {
+            if ($line -like "Instance ID*duonic*") {
+                $duonicDeviceInstanceId = $($line -split ":")[1].Trim()
+                pnputil /remove-device $duonicDeviceInstanceId
+            }
         }
     }
 }
