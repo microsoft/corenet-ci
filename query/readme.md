@@ -52,6 +52,8 @@ Count Name
 
 ### Table of Work Items
 ```PowerShell
+> $items = .\dpt.ps1
+
 > $items | Format-Table -AutoSize
 
 origin       state     number   priority assignee                   title
