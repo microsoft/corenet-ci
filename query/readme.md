@@ -6,8 +6,8 @@ The [dpt.ps1](./dpt.ps1) PowerShell script was created because there doesn't see
 
 You can use [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) to install the dependencies:
 
-- `winget install -e --id Microsoft.AzureCLI`
-- `winget install -e --id GitHub.cli`
+- [GitHub CLI](https://cli.github.com/): `winget install -e --id Microsoft.AzureCLI`
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/): `winget install -e --id GitHub.cli`
 
 > **Note:** Restart your terminal afterwards.
 
@@ -15,8 +15,8 @@ You can use [winget](https://learn.microsoft.com/en-us/windows/package-manager/w
 
 To log in to each CLI, run in a normal (**NOT Administrator**) Windows Terminal:
 
-- [GitHub CLI](https://cli.github.com/): `gh auth login` (then walk through the wizard)
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/): `az login` (then go through and accept all defaults)
+- **GitHub CLI**: `gh auth login` (then walk through the wizard)
+- **Azure CLI**: `az login` (then go through and accept all defaults)
 
 ## Validate
 
