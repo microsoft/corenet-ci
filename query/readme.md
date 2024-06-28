@@ -71,3 +71,16 @@ msquic       active    4328                                         Handshake/Wi
 msquic       active    4326                                         Misc/WithCidUpdateArgs.CidUpdate/5 faliure
 ...
 ```
+
+### Table of Work Items for Assignee
+
+```PowerShell
+> $items | Where-Object { $_.assignee -eq 'Matt Olson' } | Select-Object origin,number,priority,title | Format-Table -AutoSize
+
+origin number   priority title
+------ ------   -------- -----
+msquic 763               Support BBR Congestion Control
+os     8133782           .....
+os     8187966           .....
+os     10367971          .....
+```
