@@ -7,7 +7,10 @@ param (
     [switch]$IncludeInactive = $false,
 
     [Parameter(Mandatory = $false)]
-    [switch]$IncludeWatson = $false
+    [switch]$IncludeWatson = $false,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$IncludeFullTree = $false
 )
 
 if (!$NoHyperLinks -and ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) -and -not $Env:WT_SESSION) {
@@ -100,6 +103,12 @@ function Start-AzureDevOpsQuery {
         }
         if (!$using:IncludeWatson) {
             $osWhere += " AND Product <> 'Watson'"
+        }
+        if (!$using:IncludeFullTree) {
+            $osWhere += " AND [Work Item Type] <> 'Objective'"
+            $osWhere += " AND [Work Item Type] <> 'Key Result'"
+            $osWhere += " AND [Work Item Type] <> 'Measure'"
+            $osWhere += " AND [Work Item Type] <> 'Scenario'"
         }
         $query = `
             az boards query `
