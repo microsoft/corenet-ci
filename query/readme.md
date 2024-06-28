@@ -6,8 +6,8 @@ The [dpt.ps1](./dpt.ps1) PowerShell script was created because there doesn't see
 
 You can use winget to install the dependencies:
 
-winget install -e --id Microsoft.AzureCLI
-winget install -e --id GitHub.cli
+- `winget install -e --id Microsoft.AzureCLI`
+- `winget install -e --id GitHub.cli`
 
 > **Note:** Restart your terminal afterwards.
 
