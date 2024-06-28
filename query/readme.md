@@ -4,7 +4,7 @@ The [dpt.ps1](./dpt.ps1) PowerShell script was created because there doesn't see
 
 ## Install
 
-You can use winget to install the dependencies:
+You can use [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) to install the dependencies:
 
 - `winget install -e --id Microsoft.AzureCLI`
 - `winget install -e --id GitHub.cli`
@@ -15,15 +15,15 @@ You can use winget to install the dependencies:
 
 To log in to each CLI, run in a normal (**NOT Administrator**) Windows Terminal:
 
-- **GitHub**: `gh auth login` (then walk through the wizard)
-- **ADO**: `az login` (then go through and accept all defaults)
+- [GitHub CLI](https://cli.github.com/): `gh auth login` (then walk through the wizard)
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/): `az login` (then go through and accept all defaults)
 
 ## Validate
 
 To validate things are correctly installed and working run:
 
-- **GitHub**: `gh issue list -R microsoft/msquic`
-- **ADO**: `az boards query --org https://dev.azure.com/microsoft --project OS --wiql "SELECT Title FROM workitems WHERE Tags Contains 'QUIC'"`
+- **GitHub CLI**: `gh issue list -R microsoft/msquic`
+- **Azure CLI**: `az boards query --org https://dev.azure.com/microsoft --project OS --wiql "SELECT Title FROM workitems WHERE Tags Contains 'QUIC'"`
 
 > **Note:** For ADO, you likely will have to approve installation of a dependency first.
 
