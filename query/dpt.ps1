@@ -92,6 +92,8 @@ function Start-AzureDevOpsQuery {
 
         $osSelect = "Title,Tags,Priority,Severity,State,[Assigned To]"
         $osWhere = "[Area Path] Under '$path'"
+        $osWhere += " AND [Work Item Type] <> 'Test Plan'"
+        $osWhere += " AND [Work Item Type] <> 'Test Case'"
         $osWhere += " AND [Product Family] <> 'Windows Servicing'"
         if (!$using:IncludeInactive) {
             $osWhere += " AND (State == 'Active' OR State == 'Proposed' OR State == 'Committed')"
