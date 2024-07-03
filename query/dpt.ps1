@@ -49,9 +49,10 @@ function Start-GitHubQuery {
             else { "`e]8;;https://github.com/$repo/issues/$number`e\$number`e]8;;`e\" }
         }
 
-        function ConvertTo-CamelCase {
-            param($str)
-            $words = $str -split ' '
+        function ConvertTo-Name {
+            param($name)
+            $name = $name -replace ' \(.*?\)', ''
+            $words = $name -split ' '
             $camelCase = $words | ForEach-Object { $_.Substring(0,1).ToUpper() + $_.Substring(1).ToLower() }
             return $camelCase -join ' '
         }
@@ -70,7 +71,7 @@ function Start-GitHubQuery {
                     assignee = ''
                     title = $_.title
                 }
-                try { $issue.assignee = ConvertTo-CamelCase $_.assignees[0].name } catch {}
+                try { $issue.assignee = ConvertTo-Name $_.assignees[0].name } catch {}
                 $issue
             } catch { }
         }
@@ -93,6 +94,15 @@ function Start-AzureDevOpsQuery {
             else { "`e]8;;https://microsoft.visualstudio.com/OS/_workitems/edit/$number`e\$number`e]8;;`e\" }
         }
 
+        function ConvertTo-Name {
+            param($name)
+            $name = $name -replace ' \(.*?\)', ''
+            if ($name -match '^(.*), (.*)') {
+                return "$($matches[2]) $($matches[1])"
+            }
+            return $name
+        }
+
         $osSelect = "Title,Tags,Priority,Severity,State,[Assigned To]"
         $osWhere = "[Area Path] Under '$path'"
         $osWhere += " AND [Work Item Type] <> 'Test Plan'"
@@ -102,7 +112,8 @@ function Start-AzureDevOpsQuery {
             $osWhere += " AND (State == 'Active' OR State == 'Proposed' OR State == 'Committed')"
         }
         if (!$using:IncludeWatson) {
-            $osWhere += " AND Product <> 'Watson'"
+            $osWhere += " AND [Assigned To] <> 'Telemetry Bug Tracker (microsoft)'"
+            #$osWhere += " AND Product <> 'Watson'"
         }
         if (!$using:IncludeFullTree) {
             $osWhere += " AND [Work Item Type] <> 'Objective'"
@@ -123,7 +134,7 @@ function Start-AzureDevOpsQuery {
                     state = $_.fields.'System.State'.Tolower()
                     number = ConvertTo-NumberOutput $_.id
                     priority = ConvertTo-Priority $_.fields.'Microsoft.VSTS.Common.Priority'
-                    assignee =  $_.fields.'System.AssignedTo'.displayName.Replace('Closed', '')
+                    assignee =  ConvertTo-Name $_.fields.'System.AssignedTo'.displayName.Replace('Closed', '')
                     title = $_.fields.'System.Title'
                 }
                 $item
