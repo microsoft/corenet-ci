@@ -7,13 +7,13 @@ param (
     [switch]$IncludeFullTree = $false,
 
     [Parameter(Mandatory = $false)]
-    [string]$User = $null
+    [string]$User = ""
 )
 
 Write-Host "`n[$(Get-Date)] Running query..."
 $items = ./dpt.ps1 -IncludeWatson:$IncludeWatson -IncludeFullTree:$IncludeFullTree
 
-if ($null -eq $User) {
+if ($User -eq "") {
     Write-Host "[$(Get-Date)] Query complete! Total items: $($items.Count)"
 
     Write-Host "`nItems by Origin"
