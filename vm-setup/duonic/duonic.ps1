@@ -88,7 +88,7 @@ param (
 # Helper to wait for a service to be deleted. Callers are responsible
 # for initiating deletion.
 function Wait-For-Service-Deletion($Name) {
-    echo "Waiting for $Name service to be deleted..."
+    Write-Output "Waiting for $Name service to be deleted..."
     $DeleteSuccess = $false
     for ($i = 0; $i -lt 600; $i++) {
         if (-not (Get-Service $Name -ErrorAction Ignore)) {
@@ -98,18 +98,30 @@ function Wait-For-Service-Deletion($Name) {
         Start-Sleep -Milliseconds 100
     }
     if (!$DeleteSuccess) {
-        echo "Failed to clean up $Name!"
+        Write-Output "Failed to clean up $Name!"
     }
 }
 
 # Helper to wait for an adapter to start.
-function Wait-For-Adapters($IfDesc, $Count=1, $WaitForUp=$true) {
-    echo "Waiting for $Count `"$IfDesc`" adapter(s) to start"
+function Wait-For-Adapters($Token, $Property, $Count=1, $WaitForUp=$true) {
+    Write-Output "Waiting for $Count `"$Token`" adapter(s) to start"
+    switch ($Property) {
+        "Name" {
+            $PropertyFilter = { $_.Name -like "$Token*" }
+        }
+        "IfDesc" {
+            $PropertyFilter = { $_.InterfaceDescription -like "$Token*" }
+        }
+        default {
+            Write-Output "Unsupported Property"
+            $PropertyFilter = { $false }
+        }
+    }
+    $StatusFilter = { !$WaitForUp -or $_.Status -eq "Up" }
     $StartSuccess = $false
     for ($i = 0; $i -lt 600; $i++) {
         $Result = 0
-        $Filter = { $_.InterfaceDescription -like "$IfDesc*" -and (!$WaitForUp -or $_.Status -eq "Up") }
-        try { $Result = ((Get-NetAdapter | where $Filter) | Measure-Object).Count } catch {}
+        try { $Result = ((Get-NetAdapter | where $PropertyFilter) | where $StatusFilter | Measure-Object).Count } catch {}
         if ($Result -eq $Count) {
             $StartSuccess = $true
             break;
@@ -117,27 +129,27 @@ function Wait-For-Adapters($IfDesc, $Count=1, $WaitForUp=$true) {
         Start-Sleep -Milliseconds 100
     }
     if ($StartSuccess -eq $false) {
-        echo "$(Get-NetAdapter | Format-Table | Out-String)"
-        echo "Failed to start $Count `"$IfDesc`" adapter(s) [$Result/$Count]"
+        Write-Output "$(Get-NetAdapter | Format-Table | Out-String)"
+        Write-Output "Failed to start $Count `"$Token`" adapter(s) [$Result/$Count]"
         exit 1
     } else {
-        echo "Started $Count `"$IfDesc`" adapter(s)"
+        Write-Output "Started $Count `"$Token`" adapter(s)"
     }
 }
 
 if ($GatherDeps) {
     if ($BuildPath -eq "") {
-        $Build = ((gci "hklm:\software\microsoft\windows NT" | gp).BuildLabEx).Split(".")
+        $Build = ((Get-ChildItem "hklm:\software\microsoft\windows NT" | Get-ItemProperty).BuildLabEx).Split(".")
         $BuildPath = "\\winbuilds\release\" + $Build[3] + "\" + $Build[0] + "." + $Build[1] + "." + $Build[4] + "\" + $Build[2]
     }
     net use $BuildPath
     if (!(Test-Path $BuildPath)) {
-        echo "Path for this build doesn't exist: $BuildPath"
+        Write-Output "Path for this build doesn't exist: $BuildPath"
         exit 1
     }
-    cp ($BuildPath + "\bin\idw\dswdevice.exe")
-    cp ($BuildPath + "\bin\idw\devcon.exe")
-    cp ($BuildPath + "\test_automation_bins\net\test\duonic\duonic.*")
+    Copy-Item ($BuildPath + "\bin\idw\dswdevice.exe")
+    Copy-Item ($BuildPath + "\bin\idw\devcon.exe")
+    Copy-Item ($BuildPath + "\test_automation_bins\net\test\duonic\duonic.*")
 }
 
 if ($Install) {
@@ -149,27 +161,43 @@ if ($Install) {
     }
 
     for ($i = 1; $i -le $NumNicPairs * 2; $i++) {
-        echo "Creating device for NIC $i"
+        Write-Output "Creating device for NIC $i"
         .\dswdevice.exe -i duonic_svc$i ms_duonic
     }
+    Wait-For-Adapters -Token "duo" -Property "IfDesc" -Count ($NumNicPairs * 2) -WaitForUp $false
 
-    Start-Sleep 3 # give some time for devices to start
-
+    # Rename the adapters.
     for ($i = 1; $i -le $NumNicPairs * 2; $i++) {
-        echo "Setting up NIC $i"
+        Write-Output "Renaming NIC $i"
         $nicDescription = if ($i -eq 1) { "duonic" } else { "duonic #$i" }
         Rename-NetAdapter -InterfaceDescription $nicDescription duo$i
-        Set-NetAdapterAdvancedProperty duo$i -DisplayName linkprocindex -RegistryValue 999 -NoRestart # no proc affinity
-        Set-NetAdapterAdvancedProperty duo$i -DisplayName maclastbyte -RegistryValue $i -NoRestart
     }
+    Wait-For-Adapters -Token "duo" -Property "Name" -Count ($NumNicPairs * 2) -WaitForUp $false
 
-    echo "Restarting NICs"
+    # Configure duonic specific settings.
+    for ($i = 1; $i -le $NumNicPairs * 2; $i++) {
+        Write-Output "Setting up NIC $i"
+        for ($j = 0; $j -le 10; $j++) {
+            try {
+                Set-NetAdapterAdvancedProperty duo$i -ErrorAction Stop -DisplayName linkprocindex -RegistryValue 999 -NoRestart # no proc affinity
+                Set-NetAdapterAdvancedProperty duo$i -ErrorAction Stop -DisplayName maclastbyte -RegistryValue $i -NoRestart
+                break;
+            } catch {
+                Write-Output "Retrying configuration for NIC $i"
+                Start-Sleep 3
+                continue
+            }
+        }
+    }
+    Wait-For-Adapters -Token "duo" -Property "IfDesc" -Count ($NumNicPairs * 2) -WaitForUp $false
+
+    Write-Output "Restarting NICs"
     Restart-NetAdapter duo?
-    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
+    Wait-For-Adapters -Token "duo" -Property "IfDesc" -Count ($NumNicPairs * 2)
 
     # Configure each pair separately with its own hard-coded subnet, ie 192.168.x.0/24.
     for ($i = 1; $i -le $NumNicPairs; $i++) {
-        echo "Plumbing IP config for pair $i"
+        Write-Output "Plumbing IP config for pair $i"
 
         # Generate the "ID" of the NICs, eg 1 and 2 for the first pair, 3 and 4 for the second...
         $nic1 = $i * 2 - 1
@@ -239,19 +267,19 @@ if ($Rdq) {
     }
 
     Restart-NetAdapter duo?
-    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
+    Wait-For-Adapters -Token "duo" -Property "IfDesc" -Count ($NumNicPairs * 2)
     Start-Sleep 5 # give some time for IP addresses to be ready
     Get-NetAdapterAdvancedProperty duo? | Select-Object Name,DisplayName,DisplayValue
-    echo "Done."
+    Write-Output "Done."
 }
 
 if ($RdqDisable) {
     Set-NetAdapterAdvancedProperty duo? -DisplayName RdqEnabled -RegistryValue 0 -NoRestart
     Set-NetAdapterLso duo? -IPv4Enabled $true -IPv6Enabled $true -NoRestart
     Restart-NetAdapter duo?
-    Wait-For-Adapters -IfDesc "duo" -Count ($NumNicPairs * 2)
+    Wait-For-Adapters -Token "duo" -Property "IfDesc" -Count ($NumNicPairs * 2)
     Start-Sleep 5 # give some time for IP addresses to be ready
-    echo "Done."
+    Write-Output "Done."
 }
 
 if ($Uninstall) {
@@ -303,7 +331,7 @@ if ($Uninstall) {
             }
 
             if ($duonicDriverFile -eq "") {
-                echo "Couldn't find duonic in driver list."
+                Write-Output "Couldn't find duonic in driver list."
             }
         }
 
