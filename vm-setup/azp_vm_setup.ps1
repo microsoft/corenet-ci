@@ -220,7 +220,6 @@ if ($Mode -eq "prepareseed") {
         Invoke-WebRequest -Uri "https://github.com/OpenCppCoverage/OpenCppCoverage/releases/download/release-0.9.9.0/OpenCppCoverageSetup-x64-0.9.9.0.exe" -OutFile "$($vhdmountdir)\OpenCppCoverageSetup-x64-0.9.9.0.exe"
         Expand-Archive -Path "$($vhdmountdir)\vsts-agent-win-x64-2.172.2.zip" -DestinationPath "$($vhdmountdir)\a" -Force
         Copy-Item "vs_buildtools.exe" "$($vhdmountdir)\vs_buildtools.exe"
-        Copy-Item "sfpcopy.exe" "$($vhdmountdir)\Windows\System32\sfpcopy.exe"
         Copy-Item "testroot-sha2.cer" "$($vhdmountdir)"
         Copy-Item "CoreNetSign.pfx" "$($vhdmountdir)"
         Copy-Item "CoreNetSignRoot.cer" "$($vhdmountdir)"
